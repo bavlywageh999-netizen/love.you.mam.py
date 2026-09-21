@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Love You Mam</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #020306; }
+    body { overflow: hidden; display: grid; place-items: center; font-family: Georgia, serif; }
+    canvas { display: block; width: min(100vw, 576px); height: min(100vh, 1024px); max-height: 100vh; background: #020306; }
+    .hint { position: fixed; bottom: 12px; color: #9ba5c7; font: 12px Arial, sans-serif; opacity: .7; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" aria-label="A glowing heart made from Love You Mam words"></canvas>
+  <div class="hint">Press Esc to pause</div>
+  <script>
+    'use strict';
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 576, H = 1024, cx = W / 2, cy = 360, scale = 13.5;
+    const words = ['Love You Mam', 'LOVE YOU MAM', 'love you mam', 'Love you mam'];
+    const colors = ['#196ee6', '#0a82dc', '#2d5fe1', '#468ceb', '#1455c8'];
+    const totalFrames = 1140, fadeStart = 1010;
+    let particles = [], frame = 0, paused = false;
+
+    function heart(t) {
+      return [16 * Math.sin(t) ** 3,
+        -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t))];
+    }
+    function inside(x, y, polygon) {
+      let hit = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const a = polygon[i], b = polygon[j];
+        if ((a[1] > y) !== (b[1] > y) && x < (b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0]) hit = !hit;
+      }
+      return hit;
+    }
+    function makeParticles() {
+      const out = [], polygon = [];
+      for (let i = 0; i < 240; i++) polygon.push(heart(i / 240 * Math.PI * 2));
+      const add = (x, y, delay) => out.push({ word: words[Math.random()*words.length|0], color: colors[Math.random()*colors.length|0],
+        x: cx + x * scale + (Math.random()*8-4), y: cy + y * scale + (Math.random()*8-4), delay,
+        size: .7 + Math.random()*.8, phase: Math.random()*Math.PI*2, flicker: Math.random()*Math.PI*2, alpha: 0 });
+      for (let i = 0; i < 150; i++) {
+        const p = heart(i / 150 * Math.PI * 2 + (Math.random()-.5)*.01);
+        add(p[0] * (.95 + Math.random()*.05), p[1] * (.95 + Math.random()*.05), 20 + i/150*170 + Math.random()*10);
+      }
+      let count = 0;
+      while (count++ < 190) {
+        const x = Math.random()*32-16, y = Math.random()*30-13;
+        if (inside(x, y, polygon)) add(x, y, 180 + Math.random()*600);
+      }
+      return out;
+    }
+    function resize() {
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = W*dpr; canvas.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    function draw() {
+      if (!paused) frame++;
+      if (frame > totalFrames + 60) { particles = makeParticles(); frame = 0; }
+      const gradient = ctx.createLinearGradient(0,0,0,H);
+      gradient.addColorStop(0, '#020306'); gradient.addColorStop(.42, '#080c1b'); gradient.addColorStop(1, '#020306');
+      ctx.fillStyle = gradient; ctx.fillRect(0,0,W,H);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.filter = 'blur(10px)';
+      particles.forEach(p => {
+        if (frame > p.delay) p.alpha = Math.min(1, p.alpha + .055);
+        let fade = frame > fadeStart ? Math.max(0, 1-(frame-fadeStart)/(totalFrames-fadeStart)) : 1;
+        const flicker = p.alpha >= 1 ? .75 + .25*Math.sin(frame*.04+p.flicker) : 1;
+        const a = p.alpha * flicker * fade;
+        if (a <= 0) return;
+        ctx.globalAlpha = a*.8; ctx.fillStyle = p.color; ctx.font = `bold ${Math.max(9, 12*p.size)}px Arial`;
+        ctx.fillText(p.word, p.x + Math.sin(frame*.02+p.phase)*2, p.y + Math.cos(frame*.017+p.phase)*2);
+      });
+      ctx.restore();
+      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+      let strength = Math.max(0, Math.min(1, (frame-800)/110));
+      if (frame > fadeStart) strength *= Math.max(0, 1-(frame-fadeStart)/(totalFrames-fadeStart));
+      if (strength > 0) { ctx.shadowColor='#8aaaff'; ctx.shadowBlur=28; ctx.globalAlpha=strength*.65; ctx.fillStyle='#9aa4b8'; ctx.font='bold 84px Georgia'; ctx.fillText('Love You Mam',cx,cy-30); ctx.shadowBlur=8; ctx.globalAlpha=strength; ctx.fillStyle='#fff'; ctx.font='bold 64px Georgia'; ctx.fillText('Love You Mam',cx,cy-30); }
+      ctx.restore(); requestAnimationFrame(draw);
+    }
+    addEventListener('resize', resize); addEventListener('keydown', e => { if (e.key === 'Escape') paused = !paused; });
+    resize(); particles = makeParticles(); draw();
+  </script>
+</body>
+</html>
